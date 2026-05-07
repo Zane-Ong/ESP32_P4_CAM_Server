@@ -26,7 +26,7 @@
 - [ESP-IDF 开发 | 微雪文档平台](https://docs.waveshare.net/ESP32-P4-WIFI6/Development-Environment-Setup-IDF)  
 - [Bilibili 视频教程](https://www.bilibili.com/video/BV1EPisBWEUX?spm_id_from=333.788.videopod.episodes&vd_source=16653787726583a107f817924f9f09fe&p=6)
 
-> 建议一次性部署完成，避免环境残留或安装不完整。
+> 建议一次性部署完成，避免环境残留或安装不完整。安装完成后VScode直接打开整个ESP_P4_CAM_Server并启动ESP-IDF即可烧录。
 
 ---
 
