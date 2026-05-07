@@ -21,7 +21,7 @@
 
 ## 2. ESP-IDF 安装教程（第一步）
 
-建议优先完成 ESP-IDF 环境安装：
+建议优先完成 ESP-IDF 环境安装（推荐安装5.5.4版本）：
 
 - [ESP-IDF 开发 | 微雪文档平台](https://docs.waveshare.net/ESP32-P4-WIFI6/Development-Environment-Setup-IDF)  
 - [Bilibili 视频教程](https://www.bilibili.com/video/BV1EPisBWEUX?spm_id_from=333.788.videopod.episodes&vd_source=16653787726583a107f817924f9f09fe&p=6)
