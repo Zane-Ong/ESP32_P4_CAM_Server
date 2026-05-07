@@ -1,0 +1,4 @@
+# 文件结构说明
+初版ESP32Cam的Arduino文件在CameraWebServer下，打开可以看见详细的介绍，CameraClineServer为配套的html文件。
+
+RISV-V架构下的ESP32-P4文件为ESP_P4_CAM_Server，打开可以看见详细介绍。

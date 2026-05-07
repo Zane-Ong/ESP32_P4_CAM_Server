@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ESP32控制台</title>
+    <style>
+        body { font-family: sans-serif; text-align: center; background-color: #f4f4f9; padding: 20px; user-select: none; /* 防止长按选中文本 */ }
+        .container { max-width: 600px; margin: 0 auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+        h2 { color: #333; }
+        .controls { margin-bottom: 20px; }
+        input[type="text"] { padding: 10px; width: 60%; font-size: 16px; border: 1px solid #ccc; border-radius: 5px; }
+        button { padding: 10px 20px; font-size: 16px; cursor: pointer; background-color: #28a745; color: white; border: none; border-radius: 5px; margin: 5px; transition: 0.2s; }
+        button:hover { background-color: #218838; }
+        button:active { transform: scale(0.95); } /* 按下时的缩放反馈 */
+        
+        .action-btns { margin-top: 20px; padding-top: 20px; border-top: 1px dashed #ccc; }
+        .btn-photo { background-color: #007bff; }
+        .btn-photo:hover { background-color: #0056b3; }
+        .btn-stream { background-color: #ffc107; color: #333; }
+        .btn-stream:hover { background-color: #e0a800; }
+        .btn-record { background-color: #dc3545; }
+        .btn-record:hover { background-color: #c82333; }
+
+        #streamContainer { margin-top: 20px; display: none; }
+        img { width: 100%; max-width: 500px; border: 3px solid #333; border-radius: 5px; }
+        #log { margin-top: 20px; padding: 10px; background: #e9ecef; border-radius: 5px; font-size: 14px; color: #555; height: 120px; overflow-y: auto; text-align: left;}
+        canvas { display: none; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>ESP32-CAM 控制中心</h2>
+    
+    <div class="controls">
+        <input type="text" id="espIp" placeholder="输入 ESP32 的 IP (如: 192.168.1.100)">
+        <button onclick="connectESP()">连接硬件</button>
+    </div>
+
+    <div class="action-btns">
+        <button class="btn-photo" onclick="manualAction('photo')"> 拍照保存</button>
+        <button class="btn-stream" 
+                onmousedown="manualAction('stream_start')" 
+                onmouseup="manualAction('stream_stop')" 
+                onmouseleave="manualAction('stream_stop')"
+                ontouchstart="manualAction('stream_start'); event.preventDefault();" 
+                ontouchend="manualAction('stream_stop'); event.preventDefault();"
+                oncontextmenu="return false;"> 长按预览</button>
+        <button class="btn-record" onclick="manualAction('record')"> 录制 15 秒</button>
+    </div>
+
+    <div id="streamContainer">
+        <img id="videoStream" crossorigin="anonymous" src="">
+    </div>
+
+    <canvas id="recordCanvas" width="800" height="600"></canvas>
+
+    <div id="log">请先输入 IP 并点击连接...</div>
+</div>
+
+<script>
+    let ws;
+    let isRecording = false;
+    let mediaRecorder;
+    let recordedChunks = [];
+    let drawInterval;
+
+    const logDiv = document.getElementById('log');
+    const videoStream = document.getElementById('videoStream');
+    const streamContainer = document.getElementById('streamContainer');
+    const canvas = document.getElementById('recordCanvas');
+    const ctx = canvas.getContext('2d');
+
+    function addLog(message) {
+        const time = new Date().toLocaleTimeString();
+        logDiv.innerHTML += `<div>[${time}] ${message}</div>`;
+        logDiv.scrollTop = logDiv.scrollHeight;
+    }
+
+    // 获取当前填写的 IP
+    function getIp() {
+        const ip = document.getElementById('espIp').value.trim();
+        if (!ip) alert("请先输入 ESP32 的 IP 地址！");
+        return ip;
+    }
+
+    // 处理网页按钮的手动点击事件
+    function manualAction(actionType) {
+        const ip = getIp();
+        if (!ip) return;
+
+        switch(actionType) {
+            case 'photo': takePhoto(ip); break;
+            case 'stream_start': startStream(ip); break;
+            case 'stream_stop': stopStream(); break;
+            case 'record': startRecording(ip); break;
+        }
+    }
+
+    function connectESP() {
+        const ip = getIp();
+        if (!ip) return;
+
+        const wsUrl = `ws://${ip}:82`; 
+        addLog(`正在连接硬件: ${wsUrl}`);
+        
+        if(ws) ws.close();
+        ws = new WebSocket(wsUrl);
+
+        ws.onopen = () => addLog("<span style='color:green'>连接成功！支持网页按键或物理按键操作。</span>");
+        ws.onerror = () => addLog("<span style='color:red'>连接失败，请检查 IP。</span>");
+        ws.onclose = () => addLog("连接已断开。");
+
+        ws.onmessage = (event) => {
+            const command = event.data;
+            addLog(`收到硬件指令: ${command}`);
+            if (command === "TAKE_PHOTO") takePhoto(ip);
+            else if (command === "STREAM_START") startStream(ip);
+            else if (command === "STREAM_STOP") stopStream();
+            else if (command === "RECORD_START") startRecording(ip);
+        };
+    }
+
+    function takePhoto(ip) {
+        addLog("正在抓取照片...");
+        // 通过 fetch 拉取图片并触发下载
+        fetch(`http://${ip}/capture?_cb=${Date.now()}`)
+            .then(res => res.blob())
+            .then(blob => {
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `ESP32_Photo_${Date.now()}.jpg`;
+                a.click();
+                URL.revokeObjectURL(url);
+                addLog("照片已保存！");
+            })
+            .catch(err => addLog(`拍照失败: ${err}`));
+    }
+
+    function startStream(ip) {
+        // 防止重复触发
+        if(streamContainer.style.display === 'block' && videoStream.src.includes(ip)) return;
+        addLog("开启实时预览...");
+        videoStream.src = `http://${ip}:81/stream`;
+        streamContainer.style.display = 'block';
+    }
+
+    function stopStream() {
+        // 如果正在录像，则不允许硬件松开按键时中断视频流
+        if (isRecording) return; 
+        
+        if(streamContainer.style.display === 'none') return;
+        addLog("关闭预览。");
+        videoStream.src = "";
+        streamContainer.style.display = 'none';
+    }
+
+    function startRecording(ip) {
+        if (isRecording) {
+            addLog("正在录制中，请勿重复操作！");
+            return;
+        }
+        isRecording = true;
+        addLog("开始 15 秒视频录制...");
+
+        // 确保视频流是打开的
+        if (!videoStream.src.includes("stream")) {
+            videoStream.src = `http://${ip}:81/stream`;
+            streamContainer.style.display = 'block';
+        }
+
+        // 定时抓取视频帧画入 Canvas
+        drawInterval = setInterval(() => {
+            if(videoStream.complete && videoStream.naturalWidth !== 0) {
+                if(canvas.width !== videoStream.naturalWidth) {
+                    canvas.width = videoStream.naturalWidth;
+                    canvas.height = videoStream.naturalHeight;
+                }
+                ctx.drawImage(videoStream, 0, 0, canvas.width, canvas.height);
+            }
+        }, 1000 / 15); 
+
+        // 录制 Canvas
+        const canvasStream = canvas.captureStream(15);
+        mediaRecorder = new MediaRecorder(canvasStream, { mimeType: 'video/webm' });
+        recordedChunks = [];
+
+        mediaRecorder.ondataavailable = (e) => {
+            if (e.data.size > 0) recordedChunks.push(e.data);
+        };
+
+        mediaRecorder.onstop = () => {
+            clearInterval(drawInterval);
+            const blob = new Blob(recordedChunks, { type: 'video/webm' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `ESP32_Video_${Date.now()}.webm`;
+            a.click();
+            URL.revokeObjectURL(url);
+            isRecording = false;
+            addLog("视频录制完成！");
+            
+            // 录制结束后关闭视频流
+            videoStream.src = "";
+            streamContainer.style.display = 'none';
+        };
+
+        mediaRecorder.start();
+
+        // 15秒倒计时
+        let timeLeft = 15;
+        const countdown = setInterval(() => {
+            timeLeft--;
+            if(timeLeft <= 0) {
+                clearInterval(countdown);
+                if(mediaRecorder.state === 'recording') mediaRecorder.stop();
+            } else {
+                // 可以在控制台打印剩余时间
+                console.log(`录制倒计时: ${timeLeft}秒`);
+            }
+        }, 1000);
+    }
+</script>
+
+</body>
+</html>
