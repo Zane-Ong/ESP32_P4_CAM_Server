@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>ESP32-P4 WebSocket Video</title>
+    <style>
+        body {
+            font-family: monospace;
+            margin: 20px;
+            background: #1a1a2e;
+            color: #eee;
+        }
+        canvas {
+            max-width: 100%;
+            width: 800px;
+            border: 2px solid #0f0;
+            background: #000;
+        }
+        #log {
+            margin-top: 20px;
+            height: 300px;
+            overflow-y: auto;
+            background: #0d0d1a;
+            padding: 10px;
+            font-size: 12px;
+            border-radius: 5px;
+        }
+        .status {
+            color: #0f0;
+        }
+        button {
+            margin: 5px;
+            padding: 8px 16px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <h1>ESP32-P4 WebSocket Video</h1>
+    <canvas id="canvas" width="1280" height="960"></canvas>
+    <div>
+        <button id="connectBtn">Connect</button>
+        <button id="disconnectBtn">Disconnect</button>
+        <span id="status" class="status">Disconnected</span>
+        <span id="frameInfo"></span>
+    </div>
+    <div id="log"></div>
+
+    <script>
+        let ws = null;
+        let frameCount = 0;
+        let lastFrameTime = 0;
+
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const logDiv = document.getElementById('log');
+        const statusSpan = document.getElementById('status');
+        const frameInfoSpan = document.getElementById('frameInfo');
+
+        function addLog(msg, isError = false) {
+            const time = new Date().toLocaleTimeString();
+            const div = document.createElement('div');
+            div.textContent = `[${time}] ${msg}`;
+            div.style.color = isError ? '#f00' : '#0f0';
+            logDiv.appendChild(div);
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        function connect() {
+            if (ws) {
+                ws.close();
+                ws = null;
+            }
+
+            const wsUrl = 'ws://172.20.10.13:81/ws_video';
+            addLog(`Connecting to ${wsUrl}`);
+            
+            ws = new WebSocket(wsUrl);
+            ws.binaryType = 'arraybuffer';
+
+            ws.onopen = () => {
+                statusSpan.textContent = 'Connected';
+                statusSpan.style.color = '#0f0';
+                frameCount = 0;
+                addLog('✅ WebSocket connected');
+            };
+
+            ws.onmessage = (event) => {
+                frameCount++;
+                const now = Date.now();
+                let fps = 0;
+                if (lastFrameTime > 0) {
+                    fps = Math.round(1000 / (now - lastFrameTime));
+                }
+                lastFrameTime = now;
+                
+                frameInfoSpan.textContent = ` Frames: ${frameCount}, FPS: ${fps}, Size: ${event.data.byteLength} bytes`;
+                
+                // 将 JPEG 数据转换为图片并绘制到 canvas
+                const blob = new Blob([event.data], { type: 'image/jpeg' });
+                const url = URL.createObjectURL(blob);
+                const img = new Image();
+                
+                img.onload = () => {
+                    // 绘制到 canvas
+                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                    URL.revokeObjectURL(url);
+                    
+                    if (frameCount % 30 === 0) {
+                        addLog(`Frame ${frameCount}, size=${event.data.byteLength} bytes, fps=${fps}`);
+                    }
+                };
+                
+                img.onerror = (err) => {
+                    addLog(`❌ Image decode error for frame ${frameCount}`, true);
+                    URL.revokeObjectURL(url);
+                };
+                
+                img.src = url;
+            };
+
+            ws.onerror = (error) => {
+                statusSpan.textContent = 'Error';
+                statusSpan.style.color = '#f00';
+                addLog('❌ WebSocket error', true);
+            };
+
+            ws.onclose = () => {
+                statusSpan.textContent = 'Disconnected';
+                statusSpan.style.color = '#888';
+                addLog('❌ WebSocket disconnected');
+            };
+        }
+
+        function disconnect() {
+            if (ws) {
+                ws.close();
+                ws = null;
+            }
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            statusSpan.textContent = 'Disconnected';
+            addLog('Disconnected by user');
+        }
+
+        document.getElementById('connectBtn').addEventListener('click', connect);
+        document.getElementById('disconnectBtn').addEventListener('click', disconnect);
+
+        addLog('Page loaded. Click Connect to start video.');
+        addLog('ESP32 IP: 172.20.10.13:81/ws_video');
+    </script>
+</body>
+</html>

@@ -1,0 +1,334 @@
+menu "Example Configuration"
+    
+    config EXAMPLE_CAMERA_VIDEO_BUFFER_NUMBER
+        int "Camera video buffer number"
+        default 2
+        help
+            Number of video buffers for the camera sensor.
+            
+            More buffers provide better performance and reduce frame drops,
+            but consume more memory. Recommended range: 2-4 buffers.
+            
+            - 2 buffers: Minimum for basic operation
+            - 3-4 buffers: Better performance for smooth streaming
+            - Higher values: May improve performance but increase memory usage
+
+    config EXAMPLE_JPEG_COMPRESSION_QUALITY
+        int "JPEG compression quality (%)"
+        default 20
+        range 1 100
+        help
+            JPEG compression quality percentage (1-100).
+
+            Higher values produce better image quality but larger data streams:
+            - 90-100: Excellent quality, high bandwidth usage
+            - 70-90: Good quality, moderate bandwidth (recommended for UVC)
+            - 50-70: Acceptable quality, lower bandwidth
+            - 1-50: Poor quality, minimal bandwidth
+
+            For UVC streaming, consider the USB bandwidth limitations
+            and host system capabilities when choosing quality level.
+
+            Recommended: 20 for balanced quality and performance.
+
+    config EXAMPLE_HTTP_PART_BOUNDARY
+        string "HTTP part boundary"
+        default "123456789000000000000987654321"
+        help
+            HTTP multipart boundary string used for MJPEG streaming.
+            
+            This boundary separates different parts in the HTTP multipart response.
+            Must be unique and not appear in the video data. The default value
+            is designed to be unique and safe for most applications.
+    
+    config EXAMPLE_MDNS_INSTANCE
+        string "mDNS instance"
+        default "web-cam"
+        help
+            mDNS instance name for service discovery.
+            
+            This name will be used to identify the camera service on the network.
+            Other devices can discover this camera using this instance name
+            through mDNS/Bonjour protocols.
+    
+    config EXAMPLE_MDNS_HOST_NAME
+        string "mDNS host name"
+        default "esp-web"
+        help
+            mDNS host name for the ESP32 device.
+            
+            This hostname will be used for network identification and can be
+            accessed as "esp-web.local" on the local network (if mDNS is supported
+            by the client device).
+
+    config EXAMPLE_ENABLE_GPIO_BUTTON_CONTROL
+        bool "Enable GPIO button control"
+        default y
+        help
+            Enable three hardware buttons for capture, preview toggle, and
+            15-second recording control.
+
+    if EXAMPLE_ENABLE_GPIO_BUTTON_CONTROL
+        config EXAMPLE_BUTTON_GPIO_CAPTURE
+            int "Capture button GPIO"
+            range 0 54
+            default 46
+            help
+                Active-low button GPIO for still image capture.
+
+        config EXAMPLE_BUTTON_GPIO_PREVIEW
+            int "Preview button GPIO"
+            range 0 54
+            default 47
+            help
+                Active-low button GPIO for preview stream on/off toggle.
+
+        config EXAMPLE_BUTTON_GPIO_RECORD
+            int "15-second record button GPIO"
+            range 0 54
+            default 48
+            help
+                Active-low button GPIO for 15-second MJPEG recording trigger.
+
+        config EXAMPLE_BUTTON_DEBOUNCE_MS
+            int "Button debounce time (ms)"
+            range 10 200
+            default 40
+            help
+                Debounce time for hardware buttons.
+
+        config EXAMPLE_RECORD_DURATION_SEC
+            int "Record duration (seconds)"
+            range 1 300
+            default 25
+            help
+                Duration for the record button action.
+
+        config EXAMPLE_PC_RECEIVER_BASE_URL
+            string "PC receiver base URL"
+            default ""
+            help
+                Base URL of the PC-side helper service, for example:
+                http://192.168.219.100:8088
+                Leave empty to disable push/upload from hardware buttons.
+    endif
+
+    config EXAMPLE_ENABLE_MIPI_CSI_CROP
+        bool "Enable crop for MIPI-CSI video device"
+        default n
+        depends on EXAMPLE_ENABLE_MIPI_CSI_CAM_SENSOR && SOC_ISP_CROP_SUPPORTED
+    
+    if EXAMPLE_ENABLE_MIPI_CSI_CROP
+        config EXAMPLE_MIPI_CSI_CROP_TOP_LEFT_H
+            int "Crop region top-left horizontal coordinate"
+            default 0
+            help
+                Horizontal coordinate of the top-left corner for the crop.
+                Must be an even number and less than bottom-right horizontal coordinate.
+
+        config EXAMPLE_MIPI_CSI_CROP_TOP_LEFT_V
+            int "Crop region top-left vertical coordinate"
+            default 0
+            help
+                Vertical coordinate of the top-left corner for the crop.
+                Must be an even number and less than bottom-right vertical coordinate.
+
+        config EXAMPLE_MIPI_CSI_CROP_WIDTH
+            int "Crop region width"
+            default 640
+            help
+                Width of the crop region in pixels.
+                Must be greater than 0 and not exceed the sensor output width.
+
+        config EXAMPLE_MIPI_CSI_CROP_HEIGHT
+            int "Crop region height"
+            default 480
+            help
+                Height of the crop region in pixels.
+                Must be greater than 0 and not exceed the sensor output height.
+    endif
+endmenu
+menu "SD/MMC Example Configuration"
+
+    config EXAMPLE_FORMAT_IF_MOUNT_FAILED
+        bool "Format the card if mount failed"
+        default n
+        help
+            If this config item is set, format_if_mount_failed will be set to true and the card will be formatted if
+            the mount has failed.
+
+    config EXAMPLE_FORMAT_SD_CARD
+        bool "Format the card as a part of the example"
+        default n
+        help
+            If this config item is set, the card will be formatted as a part of the example.
+
+    choice EXAMPLE_SDMMC_BUS_WIDTH
+        prompt "SD/MMC bus width"
+        default EXAMPLE_SDMMC_BUS_WIDTH_4
+        help
+            Select the bus width of SD or MMC interface.
+            Note that even if 1 line mode is used, D3 pin of the SD card must have a pull-up resistor connected.
+            Otherwise the card may enter SPI mode, the only way to recover from which is to cycle power to the card.
+
+        config EXAMPLE_SDMMC_BUS_WIDTH_4
+            bool "4 lines (D0 - D3)"
+
+        config EXAMPLE_SDMMC_BUS_WIDTH_1
+            bool "1 line (D0)"
+    endchoice
+
+    if SOC_SDMMC_USE_GPIO_MATRIX
+
+        config EXAMPLE_PIN_CMD
+            int "CMD GPIO number"
+            default 35 if IDF_TARGET_ESP32S3
+            default 44 if IDF_TARGET_ESP32P4
+
+        config EXAMPLE_PIN_CLK
+            int "CLK GPIO number"
+            default 36 if IDF_TARGET_ESP32S3
+            default 43 if IDF_TARGET_ESP32P4
+
+        config EXAMPLE_PIN_D0
+            int "D0 GPIO number"
+            default 37 if IDF_TARGET_ESP32S3
+            default 39 if IDF_TARGET_ESP32P4
+
+        if EXAMPLE_SDMMC_BUS_WIDTH_4
+
+            config EXAMPLE_PIN_D1
+                int "D1 GPIO number"
+                default 38 if IDF_TARGET_ESP32S3
+                default 40 if IDF_TARGET_ESP32P4
+
+            config EXAMPLE_PIN_D2
+                int "D2 GPIO number"
+                default 33 if IDF_TARGET_ESP32S3
+                default 41 if IDF_TARGET_ESP32P4
+
+            config EXAMPLE_PIN_D3
+                int "D3 GPIO number"
+                default 34 if IDF_TARGET_ESP32S3
+                default 42 if IDF_TARGET_ESP32P4
+
+        endif  # EXAMPLE_SDMMC_BUS_WIDTH_4
+
+    endif  # SOC_SDMMC_USE_GPIO_MATRIX
+
+    config EXAMPLE_DEBUG_PIN_CONNECTIONS
+        bool "Debug sd pin connections and pullup strength"
+        default n
+
+    if !SOC_SDMMC_USE_GPIO_MATRIX
+        config EXAMPLE_PIN_CMD
+            depends on EXAMPLE_DEBUG_PIN_CONNECTIONS
+            default 15 if IDF_TARGET_ESP32
+
+        config EXAMPLE_PIN_CLK
+            depends on EXAMPLE_DEBUG_PIN_CONNECTIONS
+            default 14 if IDF_TARGET_ESP32
+
+        config EXAMPLE_PIN_D0
+            depends on EXAMPLE_DEBUG_PIN_CONNECTIONS
+            default 2 if IDF_TARGET_ESP32
+
+        if EXAMPLE_SDMMC_BUS_WIDTH_4
+
+            config EXAMPLE_PIN_D1
+                depends on EXAMPLE_DEBUG_PIN_CONNECTIONS
+                default 4 if IDF_TARGET_ESP32
+
+            config EXAMPLE_PIN_D2
+                depends on EXAMPLE_DEBUG_PIN_CONNECTIONS
+                default 12 if IDF_TARGET_ESP32
+
+            config EXAMPLE_PIN_D3
+                depends on EXAMPLE_DEBUG_PIN_CONNECTIONS
+                default 13 if IDF_TARGET_ESP32
+
+        endif  # EXAMPLE_SDMMC_BUS_WIDTH_4
+    endif
+
+    config EXAMPLE_ENABLE_ADC_FEATURE
+        bool "Enable ADC feature"
+        depends on EXAMPLE_DEBUG_PIN_CONNECTIONS
+        default y if IDF_TARGET_ESP32
+        default n
+
+    config EXAMPLE_ADC_UNIT
+        int "ADC Unit"
+        depends on EXAMPLE_ENABLE_ADC_FEATURE
+        default 1 if IDF_TARGET_ESP32
+        default 1
+
+    config EXAMPLE_ADC_PIN_CLK
+        int "CLK mapped ADC pin"
+        depends on EXAMPLE_ENABLE_ADC_FEATURE
+        default 6 if IDF_TARGET_ESP32
+        default 1
+
+    config EXAMPLE_ADC_PIN_CMD
+        int "CMD mapped ADC pin"
+        depends on EXAMPLE_ENABLE_ADC_FEATURE
+        default 3 if IDF_TARGET_ESP32
+        default 1
+
+    config EXAMPLE_ADC_PIN_D0
+        int "D0 mapped ADC pin"
+        depends on EXAMPLE_ENABLE_ADC_FEATURE
+        default 2 if IDF_TARGET_ESP32
+        default 1
+
+    if EXAMPLE_SDMMC_BUS_WIDTH_4
+
+        config EXAMPLE_ADC_PIN_D1
+            int "D1 mapped ADC pin"
+            depends on EXAMPLE_ENABLE_ADC_FEATURE
+            default 0 if IDF_TARGET_ESP32
+            default 1
+
+        config EXAMPLE_ADC_PIN_D2
+            int "D2 mapped ADC pin"
+            depends on EXAMPLE_ENABLE_ADC_FEATURE
+            default 5 if IDF_TARGET_ESP32
+            default 1
+
+        config EXAMPLE_ADC_PIN_D3
+            int "D3 mapped ADC pin"
+            depends on EXAMPLE_ENABLE_ADC_FEATURE
+            default 4 if IDF_TARGET_ESP32
+            default 1
+
+    endif  # EXAMPLE_SDMMC_BUS_WIDTH_4
+
+    config EXAMPLE_SD_PWR_CTRL_LDO_INTERNAL_IO
+        depends on SOC_SDMMC_IO_POWER_EXTERNAL
+        bool "SD power supply comes from internal LDO IO (READ HELP!)"
+        default y
+        help
+            Only needed when the SD card is connected to specific IO pins which can be used for high-speed SDMMC.
+            Please read the schematic first and check if the SD VDD is connected to any internal LDO output.
+            Unselect this option if the SD card is powered by an external power supply.
+
+    config EXAMPLE_SD_PWR_CTRL_LDO_IO_ID
+        depends on SOC_SDMMC_IO_POWER_EXTERNAL && EXAMPLE_SD_PWR_CTRL_LDO_INTERNAL_IO
+        int "LDO ID"
+        default 4 if IDF_TARGET_ESP32P4
+        help
+            Please read the schematic first and input your LDO ID.
+endmenu
+    menu "uSD card - Virtual File System"
+        config BSP_SD_FORMAT_ON_MOUNT_FAIL
+            bool "Format uSD card if mounting fails"
+            default n
+            help
+                The SDMMC host will format (FAT) the uSD card if it fails to mount the filesystem.
+
+        config BSP_SD_MOUNT_POINT
+            string "uSD card mount point"
+            default "/sdcard"
+            help
+                Mount point of the uSD card in the Virtual File System
+
+    endmenu

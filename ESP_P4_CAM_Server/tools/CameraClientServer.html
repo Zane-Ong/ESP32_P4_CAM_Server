@@ -1,0 +1,777 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ESP32-P4 Camera Client</title>
+  <style>
+    :root {
+      --bg: #eef3f8;
+      --panel: #ffffff;
+      --panel-2: #f5f8fc;
+      --text: #243241;
+      --muted: #617283;
+      --primary: #1667d9;
+      --secondary: #6c7b8e;
+      --danger: #d9485f;
+      --success: #1f7a4d;
+      --border: #d7e0ea;
+      --shadow: 0 20px 60px rgba(18, 38, 63, 0.12);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      padding: 24px;
+      font-family: "Segoe UI", "Microsoft YaHei", sans-serif;
+      background: linear-gradient(180deg, #edf4fa 0%, #e8eef5 100%);
+      color: var(--text);
+    }
+
+    .container {
+      max-width: 1080px;
+      margin: 0 auto;
+      background: var(--panel);
+      border-radius: 20px;
+      box-shadow: var(--shadow);
+      padding: 24px;
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: 28px;
+    }
+
+    .hint {
+      margin-bottom: 18px;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    .row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
+    .grow {
+      flex: 1 1 280px;
+    }
+
+    input[type="text"],
+    select,
+    input[type="range"] {
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 11px 13px;
+      font-size: 15px;
+      background: #fff;
+      color: var(--text);
+    }
+
+    input[type="range"] {
+      padding: 0;
+      height: 42px;
+    }
+
+    button {
+      border: none;
+      border-radius: 10px;
+      padding: 11px 18px;
+      min-height: 44px;
+      font-size: 15px;
+      cursor: pointer;
+      color: #fff;
+      background: var(--primary);
+      transition: transform 0.15s ease, opacity 0.15s ease;
+    }
+
+    button:hover {
+      opacity: 0.92;
+    }
+
+    button:active {
+      transform: scale(0.98);
+    }
+
+    button.secondary {
+      background: var(--secondary);
+    }
+
+    button.danger {
+      background: var(--danger);
+    }
+
+    .status-bar {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 18px;
+      padding: 14px 16px;
+      border-radius: 14px;
+      background: var(--panel-2);
+      color: var(--muted);
+    }
+
+    .status-bar strong {
+      color: var(--success);
+    }
+
+    .config-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 14px;
+      margin-bottom: 18px;
+    }
+
+    .card {
+      padding: 14px;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: var(--panel-2);
+    }
+
+    .card label {
+      display: block;
+      margin-bottom: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    .value-line {
+      margin-top: 8px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .preview-wrap {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 320px;
+      background: #101215;
+      border-radius: 16px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    #previewCanvas {
+      width: 100%;
+      max-height: 72vh;
+      background: #000;
+      transform: scale(var(--zoom-scale, 1));
+      transform-origin: center center;
+      object-fit: contain;
+    }
+
+    #emptyState {
+      color: #cad3dc;
+      text-align: center;
+      padding: 48px 20px;
+      line-height: 1.7;
+    }
+
+    #log {
+      margin-top: 18px;
+      padding: 14px;
+      background: var(--panel-2);
+      border-radius: 14px;
+      min-height: 160px;
+      max-height: 280px;
+      overflow-y: auto;
+      font-size: 13px;
+      line-height: 1.6;
+      white-space: pre-wrap;
+    }
+
+    canvas {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>ESP32-P4 Camera Client</h1>
+    <div class="hint">
+      Open this HTML locally, enter the board IP, then click <b>Connect</b>.
+    </div>
+
+    <div class="row">
+      <div class="grow">
+        <input id="espHost" type="text" placeholder="Board IP, for example 192.168.219.245">
+      </div>
+      <button id="connectBtn" type="button">Connect</button>
+      <button id="refreshInfoBtn" class="secondary" type="button">Refresh Camera Info</button>
+      <button id="clearBtn" class="danger" type="button">Clear Log</button>
+    </div>
+
+    <div class="row">
+      <button id="previewBtn" type="button">Start Preview</button>
+      <button id="photoBtn" type="button">Capture Photo</button>
+      <button id="recordBtn" type="button">Record 15s Video</button>
+      <button id="stopBtn" class="secondary" type="button">Stop Preview</button>
+      <button id="applyBtn" class="secondary" type="button">Apply Camera Settings</button>
+    </div>
+
+    <div class="status-bar">
+      <div>Event channel: <strong id="wsStatus">Disconnected</strong></div>
+      <div>Video WebSocket: <strong id="wsVideoStatus">Disconnected</strong></div>
+      <div>Camera: <span id="cameraSummary">Not loaded</span></div>
+      <div>Recording: <span id="recordStatus">Idle</span></div>
+    </div>
+
+    <div class="config-grid">
+      <div class="card">
+        <label for="formatSelect">Resolution / Format</label>
+        <select id="formatSelect"></select>
+        <div class="value-line" id="formatHint">Load camera info first</div>
+      </div>
+
+      <div class="card">
+        <label for="qualityRange">JPEG Quality</label>
+        <input id="qualityRange" type="range" min="10" max="63" step="1" value="53">
+        <div class="value-line" id="qualityValue">53</div>
+      </div>
+
+      <div class="card">
+        <label for="zoomRange">Preview Zoom</label>
+        <input id="zoomRange" type="range" min="100" max="300" step="10" value="100">
+        <div class="value-line" id="zoomValue">100%</div>
+      </div>
+
+      <div class="card">
+        <label for="displayMode">Display Mode</label>
+        <select id="displayMode">
+          <option value="fit">Fit</option>
+          <option value="fill">Fill</option>
+        </select>
+        <div class="value-line" id="displayHint">Fit keeps the full frame visible</div>
+      </div>
+    </div>
+
+    <div class="preview-wrap">
+      <canvas id="previewCanvas" width="1280" height="960"></canvas>
+      <div id="emptyState">Preview is not running</div>
+    </div>
+
+    <canvas id="recordCanvas"></canvas>
+    <div id="log"></div>
+  </div>
+
+  <script>
+    const DEFAULT_RECORD_SECONDS = 15;
+    const DEFAULT_RECORD_FPS = 15;
+
+    let ws = null;
+    let wsVideo = null;
+    let isRecording = false;
+    let mediaRecorder = null;
+    let recordedChunks = [];
+    let drawInterval = null;
+    let previewReady = false;
+    let streamActive = false;
+    let currentPreviewHost = "";
+    let currentCamera = null;
+    let frameCount = 0;
+
+    const hostInput = document.getElementById("espHost");
+    const wsStatus = document.getElementById("wsStatus");
+    const wsVideoStatus = document.getElementById("wsVideoStatus");
+    const cameraSummary = document.getElementById("cameraSummary");
+    const recordStatus = document.getElementById("recordStatus");
+    const logDiv = document.getElementById("log");
+    const previewCanvas = document.getElementById("previewCanvas");
+    const ctx = previewCanvas.getContext("2d");
+    const emptyState = document.getElementById("emptyState");
+    const recordCanvas = document.getElementById("recordCanvas");
+    const recordCtx = recordCanvas.getContext("2d");
+    const formatSelect = document.getElementById("formatSelect");
+    const formatHint = document.getElementById("formatHint");
+    const qualityRange = document.getElementById("qualityRange");
+    const qualityValue = document.getElementById("qualityValue");
+    const zoomRange = document.getElementById("zoomRange");
+    const zoomValue = document.getElementById("zoomValue");
+    const displayMode = document.getElementById("displayMode");
+
+    function addLog(message) {
+      const time = new Date().toLocaleTimeString();
+      const line = document.createElement("div");
+      line.textContent = `[${time}] ${message}`;
+      logDiv.appendChild(line);
+      logDiv.scrollTop = logDiv.scrollHeight;
+    }
+
+    function setWsVideoStatus(text, connected) {
+      wsVideoStatus.textContent = text;
+      wsVideoStatus.style.color = connected ? "#1f7a4d" : "#bf4a4a";
+    }
+
+    function normalizeHost(rawValue) {
+      const trimmed = (rawValue || "").trim();
+      if (!trimmed) return "";
+      try {
+        const url = new URL(trimmed.includes("://") ? trimmed : `http://${trimmed}`);
+        return url.host;
+      } catch {
+        return "";
+      }
+    }
+
+    function getHost() {
+      const host = normalizeHost(hostInput.value);
+      if (!host) {
+        alert("Please enter a valid board IP address first.");
+        return "";
+      }
+      hostInput.value = host;
+      localStorage.setItem("esp32-p4-camera-host", host);
+      return host;
+    }
+
+    function getHttpBase() {
+      const host = getHost();
+      return host ? `http://${host}` : "";
+    }
+
+    function getWsUrl() {
+      const host = getHost();
+      return host ? `ws://${host}/ws` : "";
+    }
+
+    function getWsVideoUrl() {
+      const host = getHost();
+      return host ? `ws://${host}:81/ws_video` : "";
+    }
+
+    function setStatus(text, connected) {
+      wsStatus.textContent = text;
+      wsStatus.style.color = connected ? "#1f7a4d" : "#bf4a4a";
+    }
+
+    function setRecordingStatus(text, active) {
+      recordStatus.textContent = text;
+      recordStatus.style.color = active ? "#d9485f" : "#617283";
+    }
+
+    function showPreview(visible) {
+      previewCanvas.style.display = visible ? "block" : "none";
+      emptyState.style.display = visible ? "none" : "block";
+    }
+
+    function updateZoom() {
+      const zoom = Number(zoomRange.value || "100") / 100;
+      previewCanvas.style.setProperty("--zoom-scale", String(zoom));
+      zoomValue.textContent = `${zoomRange.value}%`;
+    }
+
+    function updateDisplayMode() {
+      previewCanvas.style.objectFit = displayMode.value === "fill" ? "cover" : "contain";
+    }
+
+    async function fetchCameraInfo() {
+      const httpBase = getHttpBase();
+      if (!httpBase) return;
+
+      try {
+        const response = await fetch(`${httpBase}/api/get_camera_info?_cb=${Date.now()}`, { mode: "cors" });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+        const data = await response.json();
+        const camera = data && data.cameras && data.cameras.length > 0 ? data.cameras[0] : null;
+        if (!camera) throw new Error("camera info is empty");
+
+        currentCamera = camera;
+        cameraSummary.textContent = `${camera.currentResolution.width}x${camera.currentResolution.height}, ${camera.currentFrameRate} fps, Q${camera.currentQuality ?? "-"}`;
+
+        formatSelect.innerHTML = "";
+        for (const format of camera.imageFormats) {
+          const option = document.createElement("option");
+          option.value = String(format.id);
+          option.textContent = format.description;
+          formatSelect.appendChild(option);
+        }
+        formatSelect.value = String(camera.currentImageFormat);
+        formatHint.textContent = camera.currentImageFormatDescription || "Current format loaded";
+
+        const selectedFormat = camera.imageFormats.find((item) => String(item.id) === String(camera.currentImageFormat));
+        const quality = typeof camera.currentQuality === "number" ? camera.currentQuality : 53;
+        const qualityMin = selectedFormat && selectedFormat.quality ? selectedFormat.quality.min : 10;
+        const qualityMax = selectedFormat && selectedFormat.quality ? selectedFormat.quality.max : 63;
+        const qualityStep = selectedFormat && selectedFormat.quality && selectedFormat.quality.step ? selectedFormat.quality.step : 1;
+
+        qualityRange.min = String(qualityMin);
+        qualityRange.max = String(qualityMax);
+        qualityRange.step = String(qualityStep);
+        qualityRange.value = String(quality);
+        qualityValue.textContent = String(quality);
+
+        addLog("Camera info updated");
+      } catch (error) {
+        addLog(`Failed to load camera info: ${error}`);
+      }
+    }
+
+    async function applyCameraSettings() {
+      const httpBase = getHttpBase();
+      if (!httpBase) return;
+      if (!currentCamera) {
+        addLog("Camera info is not loaded yet");
+        return;
+      }
+
+      const payload = JSON.stringify({
+        index: currentCamera.index,
+        image_format: formatSelect.value,
+        jpeg_quality: Number(qualityRange.value)
+      });
+
+      addLog("Applying camera settings");
+      try {
+        const response = await fetch(`${httpBase}/api/set_camera_config`, {
+          method: "POST",
+          mode: "cors",
+          body: payload
+        });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        await fetchCameraInfo();
+        addLog("Camera settings saved");
+      } catch (error) {
+        addLog(`Failed to save camera settings: ${error}`);
+      }
+    }
+
+    // WebSocket 视频流 - 使用 Canvas 绘制
+    function startVideoWebSocket() {
+        const wsUrl = getWsVideoUrl();
+        if (!wsUrl) return;
+
+        addLog(`Connecting video WebSocket: ${wsUrl}`);
+        wsVideo = new WebSocket(wsUrl);
+        wsVideo.binaryType = 'arraybuffer';
+        
+        let heartbeatInterval = null;
+
+        wsVideo.onopen = () => {
+            setWsVideoStatus("Connected", true);
+            addLog("Video WebSocket connected");
+            frameCount = 0;
+            
+            // 发送心跳保持连接
+            heartbeatInterval = setInterval(() => {
+                if (wsVideo && wsVideo.readyState === WebSocket.OPEN) {
+                    wsVideo.send("ping");
+                }
+            }, 2000);
+        };
+
+        wsVideo.onmessage = (event) => {
+            if (event.data instanceof ArrayBuffer) {
+                frameCount++;
+                
+                const blob = new Blob([event.data], { type: 'image/jpeg' });
+                const url = URL.createObjectURL(blob);
+                const img = new Image();
+                
+                img.onload = () => {
+                    ctx.drawImage(img, 0, 0, previewCanvas.width, previewCanvas.height);
+                    URL.revokeObjectURL(url);
+                    
+                    if (!previewReady) {
+                        previewReady = true;
+                        showPreview(true);
+                        addLog("First frame received, preview ready");
+                    }
+                };
+                
+                img.onerror = (err) => {
+                    addLog(`Image decode error for frame ${frameCount}`);
+                    URL.revokeObjectURL(url);
+                };
+                
+                img.src = url;
+            } else if (event.data === "ping") {
+                // 响应心跳
+                if (wsVideo && wsVideo.readyState === WebSocket.OPEN) {
+                    wsVideo.send("pong");
+                }
+            }
+        };
+
+        wsVideo.onerror = (error) => {
+            setWsVideoStatus("Error", false);
+            addLog(`Video WebSocket error`);
+        };
+
+        wsVideo.onclose = () => {
+            setWsVideoStatus("Disconnected", false);
+            addLog("Video WebSocket disconnected");
+            if (heartbeatInterval) {
+                clearInterval(heartbeatInterval);
+                heartbeatInterval = null;
+            }
+            if (streamActive) {
+                addLog("Reconnecting video WebSocket in 1 second...");
+                setTimeout(() => {
+                    if (streamActive) {
+                        startVideoWebSocket();
+                    }
+                }, 1000);
+            }
+        };
+    }
+
+    function stopPreview() {
+      streamActive = false;
+      previewReady = false;
+      currentPreviewHost = "";
+      
+      if (wsVideo) {
+        wsVideo.close();
+        wsVideo = null;
+      }
+      
+      ctx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
+      showPreview(false);
+      setWsVideoStatus("Disconnected", false);
+      addLog("Preview stopped");
+    }
+
+    function startPreview(forceReload = false) {
+      const host = getHost();
+      if (!host) return false;
+
+      if (streamActive && !forceReload && currentPreviewHost === host) {
+        showPreview(true);
+        return true;
+      }
+
+      stopPreview();
+      
+      setTimeout(() => {
+        currentPreviewHost = host;
+        streamActive = true;
+        startVideoWebSocket();
+      }, 100);
+      
+      return true;
+    }
+
+    async function takePhoto() {
+        const httpBase = getHttpBase();
+        if (!httpBase) return;
+
+        addLog("Capturing photo");
+        const url = `${httpBase}/api/latest_photo`;
+        const filename = `photo_${Date.now()}.jpg`;
+        
+        // 下载照片
+        downloadFile(url, filename);
+        
+    }
+
+    function getRecorderMimeType() {
+      const candidates = ["video/webm;codecs=vp9", "video/webm;codecs=vp8", "video/webm"];
+      for (const mimeType of candidates) {
+        if (window.MediaRecorder && MediaRecorder.isTypeSupported(mimeType)) {
+          return mimeType;
+        }
+      }
+      return "";
+    }
+
+    // 修改：使用 <a> 标签直接下载，避免 fetch 跨域问题
+    function downloadFile(url, filename) {
+      addLog(`Downloading ${filename} from ${url}`);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      a.target = '_blank'; // 【新增这一行】防止浏览器阻断当前的 WebSocket 视频流
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      addLog(`✅ ${filename} download started`);
+    }
+
+    async function startRecording() {
+      if (isRecording) {
+        addLog("Recording already running");
+        return;
+      }
+      if (!window.MediaRecorder) {
+        addLog("MediaRecorder not supported");
+        return;
+      }
+
+      const previewOk = await startPreview(false);
+      if (!previewOk) {
+        addLog("Recording failed: preview not ready");
+        return;
+      }
+
+      await new Promise(r => setTimeout(r, 500));
+      if (!previewReady) {
+        addLog("Recording failed: no video frame");
+        return;
+      }
+
+      isRecording = true;
+      setRecordingStatus("Recording", true);
+      recordedChunks = [];
+
+      recordCanvas.width = previewCanvas.width;
+      recordCanvas.height = previewCanvas.height;
+      
+      const drawFrame = () => {
+        recordCtx.drawImage(previewCanvas, 0, 0, recordCanvas.width, recordCanvas.height);
+      };
+      drawFrame();
+      drawInterval = setInterval(drawFrame, 1000 / DEFAULT_RECORD_FPS);
+
+      const canvasStream = recordCanvas.captureStream(DEFAULT_RECORD_FPS);
+      const mimeType = getRecorderMimeType();
+      const options = mimeType ? { mimeType } : undefined;
+
+      try {
+        mediaRecorder = options ? new MediaRecorder(canvasStream, options) : new MediaRecorder(canvasStream);
+      } catch (error) {
+        clearInterval(drawInterval);
+        drawInterval = null;
+        isRecording = false;
+        setRecordingStatus("Idle", false);
+        addLog(`MediaRecorder failed: ${error}`);
+        return;
+      }
+
+      addLog(`Recording ${DEFAULT_RECORD_SECONDS} seconds`);
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data && event.data.size > 0) recordedChunks.push(event.data);
+      };
+
+      mediaRecorder.onstop = () => {
+        if (drawInterval) {
+          clearInterval(drawInterval);
+          drawInterval = null;
+        }
+        isRecording = false;
+        setRecordingStatus("Idle", false);
+
+        if (recordedChunks.length === 0) {
+          addLog("No video data captured");
+          return;
+        }
+
+        const finalMimeType = mimeType || "video/webm";
+        const blob = new Blob(recordedChunks, { type: finalMimeType });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = `ESP32P4_Video_${Date.now()}.webm`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        addLog("Video saved");
+      };
+
+      mediaRecorder.start(1000);
+      setTimeout(() => {
+        if (mediaRecorder && mediaRecorder.state === "recording") {
+          mediaRecorder.stop();
+        }
+      }, DEFAULT_RECORD_SECONDS * 1000);
+    }
+
+    // ========== 关键修改：拍照后强制重连 WebSocket ==========
+    function handleBoardEvent(command) {
+        addLog(`Board event: ${command}`);
+        
+        if (command === "TAKE_PHOTO") {
+            const httpBase = getHttpBase();
+            if (httpBase) {
+                const url = `${httpBase}/api/latest_photo`;
+                const filename = `photo_${Date.now()}.jpg`;
+                downloadFile(url, filename);
+                
+            }
+        } else if (command === "RECORD_START") {
+            addLog("Recording started, will download after 15 seconds...");
+            setTimeout(() => {
+                const httpBase = getHttpBase();
+                if (httpBase) {
+                    downloadFile(`${httpBase}/api/latest_video`, `video_${Date.now()}.mjpeg`);
+                }
+                // 录像完成后也重连
+                setTimeout(() => {
+                    if (wsVideo) {
+                        wsVideo.close();
+                        wsVideo = null;
+                    }
+                    if (streamActive) {
+                        startVideoWebSocket();
+                    }
+                }, 500);
+            }, 16000);
+        } else if (command === "STREAM_START") {
+            startPreview(false);
+        }
+    }
+    // ==========================================================
+
+    async function connectBoard() {
+      const wsUrl = getWsUrl();
+      if (!wsUrl) return;
+
+      if (ws) ws.close();
+      addLog(`Connecting event channel: ${wsUrl}`);
+      ws = new WebSocket(wsUrl);
+
+      ws.onopen = async () => {
+        setStatus("Connected", true);
+        addLog("Event channel connected");
+        await fetchCameraInfo();
+      };
+      ws.onclose = () => setStatus("Disconnected", false);
+      ws.onerror = () => setStatus("Connect failed", false);
+      ws.onmessage = (event) => handleBoardEvent(String(event.data || ""));
+    }
+
+    qualityRange.addEventListener("input", () => qualityValue.textContent = qualityRange.value);
+    zoomRange.addEventListener("input", updateZoom);
+    displayMode.addEventListener("change", updateDisplayMode);
+
+    document.getElementById("connectBtn").addEventListener("click", connectBoard);
+    document.getElementById("refreshInfoBtn").addEventListener("click", fetchCameraInfo);
+    document.getElementById("previewBtn").addEventListener("click", () => startPreview(true));
+    document.getElementById("photoBtn").addEventListener("click", takePhoto);
+    document.getElementById("recordBtn").addEventListener("click", startRecording);
+    document.getElementById("stopBtn").addEventListener("click", stopPreview);
+    document.getElementById("applyBtn").addEventListener("click", applyCameraSettings);
+    document.getElementById("clearBtn").addEventListener("click", () => logDiv.innerHTML = "");
+
+    window.addEventListener("beforeunload", () => {
+      if (ws) ws.close();
+      if (wsVideo) wsVideo.close();
+    });
+
+    const savedHost = localStorage.getItem("esp32-p4-camera-host");
+    if (savedHost) hostInput.value = savedHost;
+
+    updateZoom();
+    updateDisplayMode();
+    setStatus("Disconnected", false);
+    setWsVideoStatus("Disconnected", false);
+    setRecordingStatus("Idle", false);
+    addLog("Enter board IP, then click Connect.");
+  </script>
+</body>
+</html>
