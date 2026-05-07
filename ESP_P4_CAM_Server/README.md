@@ -112,7 +112,7 @@
 | 按键 GPIO | 46 |
 | 按键消抖 | 40 ms |
 
-> 可在 `idf.py menuconfig` 或 `sdkconfig.defaults` 中修改
+> 可在 `idf.py menuconfig` 或 `sdkconfig.defaults` 中修改，可以直接点击VSCode下方齿轮按钮搜索“WI-FI”进行更改
 
 ---
 
@@ -130,12 +130,16 @@ CONFIG_EXAMPLE_WIFI_SSID="你的热点名"
 CONFIG_EXAMPLE_WIFI_PASSWORD="你的密码"
 ```
 
-### Step 2. 编译
+方法 C（点击VSCode下方⚙️按钮调出menuconfig可视化界面更改）：
+```
+搜索WiFi可以更改SSID和Password。
+```
+### Step 2. 编译（或者点击VScode下方🔧按钮按钮）
 ```bash
 idf.py build
 ```
 
-### Step 3. 烧录并监控
+### Step 3. 烧录并监控（或者点击VScode下方⚡️按钮或🖥️按钮）
 ```bash
 idf.py -p COM10 flash monitor
 ```
@@ -150,7 +154,7 @@ MJPEG stream: http://192.168.xxx.xxx:81/stream
 
 ---
 
-## 9. 使用板载网页
+## 9. 使用板载网页（不推荐）
 
 浏览器打开：
 ```
