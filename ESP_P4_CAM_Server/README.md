@@ -7,7 +7,30 @@
 
 ---
 
-## 1. 当前支持功能
+## 1. 适用硬件
+
+| 组件 | 说明 |
+|------|------|
+| 主板 | Waveshare ESP32-P4-WIFI6 Kit A |
+| 主控 | ESP32-P4 |
+| 协处理器 | ESP32-C6 |
+| 摄像头 | OV5647 |
+| 框架 | ESP-IDF v5.5.4 |
+
+---
+
+## 2. ESP-IDF 安装教程（第一步）
+
+建议优先完成 ESP-IDF 环境安装：
+
+- [ESP-IDF 开发 | 微雪文档平台](https://docs.waveshare.net/ESP32-P4-WIFI6/Development-Environment-Setup-IDF)  
+- [Bilibili 视频教程](https://www.bilibili.com/video/BV1EPisBWEUX?spm_id_from=333.788.videopod.episodes&vd_source=16653787726583a107f817924f9f09fe&p=6)
+
+> 建议一次性部署完成，避免环境残留或安装不完整。
+
+---
+
+## 3. 当前支持功能
 
 - 自动连接 Wi-Fi，并打印访问地址
 - 浏览器访问板子 IP 进行实时预览
@@ -22,19 +45,7 @@
 
 ---
 
-## 2. 硬件要求
-
-| 组件 | 说明 |
-|------|------|
-| 主板 | Waveshare ESP32-P4-WIFI6 Kit A |
-| 主控 | ESP32-P4 |
-| 协处理器 | ESP32-C6 |
-| 摄像头 | OV5647 |
-| 框架 | ESP-IDF v5.5.4 |
-
----
-
-## 3. 项目目录结构
+## 4. 项目目录结构
 
 - [`main/simple_video_server_example.c`](./main/simple_video_server_example.c)  
   核心代码（摄像头、HTTP/WebSocket、按键、SD 卡录像等）
@@ -51,7 +62,7 @@
 
 ---
 
-## 4. 主要接口列表
+## 5. 主要接口列表
 
 ### HTTP 接口
 | 路径 | 说明 |
@@ -74,7 +85,7 @@
 
 ---
 
-## 5. 按键逻辑（已和代码一致）
+## 6. 按键逻辑（已和代码一致）
 
 > **当前只使用一个按键 GPIO46（低电平触发）**
 
@@ -87,7 +98,7 @@
 
 ---
 
-## 6. 默认配置（来自 sdkconfig）
+## 7. 默认配置（来自 sdkconfig）
 
 | 项目 | 默认值 |
 |------|--------|
@@ -105,7 +116,7 @@
 
 ---
 
-## 7. 快速上手（推荐流程）
+## 8. 快速上手（推荐流程）
 
 ### Step 1. 配置 Wi-Fi
 方法 A（menuconfig）：
@@ -139,7 +150,7 @@ MJPEG stream: http://192.168.xxx.xxx:81/stream
 
 ---
 
-## 8. 使用板载网页
+## 9. 使用板载网页
 
 浏览器打开：
 ```
@@ -155,7 +166,7 @@ http://<板子IP>/
 
 ---
 
-## 9. 使用本地 HTML 自动保存文件（推荐）
+## 10. 使用本地 HTML 自动保存文件（推荐）
 
 ### Step 1. 打开本地页面
 双击：
@@ -184,7 +195,7 @@ tools/CameraClientServer.html
 
 ---
 
-## 10. SD 卡录像说明（与代码一致）
+## 11. SD 卡录像说明（与代码一致）
 
 - 录像文件写入 SD 卡
 - 录制时先写入 `.tmp`，完成后自动重命名为 `.mjpeg`
@@ -193,7 +204,7 @@ tools/CameraClientServer.html
 
 ---
 
-## 11. 常见问题
+## 12. 常见问题
 
 ### Q1: 串口没打印 IP
 - Wi-Fi 配置是否正确
@@ -218,7 +229,7 @@ tools/CameraClientServer.html
 
 ---
 
-## 12. 常用命令汇总
+## 13. 常用命令汇总
 
 ```bash
 idf.py build
@@ -230,21 +241,12 @@ idf.py menuconfig
 
 ---
 
-## 13. 建议阅读顺序
+## 14. 建议阅读顺序
 
 1. [`main/simple_video_server_example.c`](./main/simple_video_server_example.c)
 2. [`main/Kconfig.projbuild`](./main/Kconfig.projbuild)
 3. [`tools/CameraClientServer.html`](./tools/CameraClientServer.html)
 4. [`frontend/`](./frontend)
-
----
-
-## 14. ESP-IDF 安装参考
-
-参考微雪文档：
-
-- [ESP-IDF 开发 | 微雪文档平台](https://docs.waveshare.net/ESP32-P4-WIFI6/Development-Environment-Setup-IDF)  
-- [Bilibili 视频教程](https://www.bilibili.com/video/BV1EPisBWEUX?spm_id_from=333.788.videopod.episodes&vd_source=16653787726583a107f817924f9f09fe&p=6)
 
 ---
 
