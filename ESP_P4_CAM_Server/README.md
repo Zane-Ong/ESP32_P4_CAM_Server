@@ -124,7 +124,7 @@
 idf.py menuconfig
 ```
 
-方法 B（直接修改配置）：
+方法 B（直接修改配置）（不推荐）：
 ```
 CONFIG_EXAMPLE_WIFI_SSID="你的热点名"
 CONFIG_EXAMPLE_WIFI_PASSWORD="你的密码"
